@@ -3,12 +3,6 @@ publish = "build/"
 command = "npm run build"
 
 [[redirects]]
-  from = "/api/*"
-  to = "http://test-us-west.leancloud.tk/api/:splat"
-  status = 200
-  force = true
-
-[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
