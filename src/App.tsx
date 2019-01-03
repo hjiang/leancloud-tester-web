@@ -16,7 +16,7 @@ import styled from 'styled-components';
 import moment from 'moment';
 
 const getJSON = async (path: string) => {
-  const prefix = 'http://test-us-west.leancloud.tk';
+  const prefix = 'https://test-us-west.leancloud.tk';
   const url = `${prefix}${path}`;
   const response = await fetch(url, {
     method: 'GET',
