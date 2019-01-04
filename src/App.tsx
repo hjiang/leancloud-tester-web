@@ -6,6 +6,7 @@ import {
   Menu,
   Feed,
   Icon,
+  Checkbox
 } from 'semantic-ui-react';
 import { BrowserRouter as Router, Link, Switch, Route, match } from 'react-router-dom';
 import styled from 'styled-components';
@@ -33,19 +34,43 @@ interface Result {
 interface ResultListProps {
   match?: match<{ name: string }>
 }
+
+interface ResultListState {
+  results: Result[];
+  failuresOnly: boolean;
+}
 class ResultList extends Component<ResultListProps> {
-  state: { results: Result[] } = {
-    results: []
+  state: ResultListState = {
+    results: [],
+    failuresOnly: false
   }
 
+  loadResults = async () => {
+    if (this.state.failuresOnly) {
+      this.setState({
+        results: await getJSON(`/api/tests/${this.props.match!.params.name}/failures/`)
+      });
+    } else {
+      this.setState({
+        results: await getJSON(`/api/tests/${this.props.match!.params.name}/results/`)
+      });
+    }
+  }
   async componentDidMount() {
-    this.setState({ results: await getJSON(`/api/tests/${this.props.match!.params.name}/results/`) });
+    this.loadResults();
+  }
+
+  toggleFailuresOnly = () => {
+    this.setState({ failuresOnly: !this.state.failuresOnly }, () => {
+      this.loadResults();
+    });
   }
 
   render() {
     return (
       <Container>
         <h2>LeanStorage</h2>
+        <Checkbox label='Show failures only' onChange={this.toggleFailuresOnly} checked={this.state.failuresOnly} toggle />
         <Feed>
           {this.state.results.map(result => {
             return (
@@ -59,13 +84,13 @@ class ResultList extends Component<ResultListProps> {
                 </Feed.Label>
                 <Feed.Content>
                   <Feed.Summary>
-                    { result.passed ? 'Passed' : 'Failed' }
-                  <Feed.Date>{moment(result.finishedAt).fromNow()}</Feed.Date>
+                    {result.passed ? 'Passed' : 'Failed'}
+                    <Feed.Date>{moment(result.finishedAt).fromNow()}</Feed.Date>
                   </Feed.Summary>
-                  { result.info &&
-                  <Feed.Extra text>
-                    { result.info }
-                  </Feed.Extra> }
+                  {result.info &&
+                    <Feed.Extra text>
+                      {result.info}
+                    </Feed.Extra>}
                 </Feed.Content>
               </Feed.Event>
             );
@@ -125,7 +150,7 @@ class App extends Component {
         <div>
           <Menu fixed='top' inverted>
             <Container>
-              <Menu.Item as='a' header>
+              <Menu.Item as={Link} to='/' header>
                 LeanCloud Tester
               </Menu.Item>
 
