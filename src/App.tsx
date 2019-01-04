@@ -1,12 +1,8 @@
 import React, { Component } from 'react';
 import {
   Container,
-  Divider,
   Dropdown,
   Grid,
-  Header,
-  Image,
-  List,
   Menu,
   Feed,
   Icon,
