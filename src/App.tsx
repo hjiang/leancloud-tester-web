@@ -42,7 +42,7 @@ interface ResultListState {
 class ResultList extends Component<ResultListProps> {
   state: ResultListState = {
     results: [],
-    failuresOnly: false
+    failuresOnly: true
   }
 
   loadResults = async () => {
@@ -85,7 +85,10 @@ class ResultList extends Component<ResultListProps> {
                 <Feed.Content>
                   <Feed.Summary>
                     {result.passed ? 'Passed' : 'Failed'}
-                    <Feed.Date>{moment(result.finishedAt).fromNow()}</Feed.Date>
+                    <Feed.Date>
+                      {moment(result.finishedAt).fromNow()}
+                      - {moment(result.finishedAt).local().format()}
+                    </Feed.Date>
                   </Feed.Summary>
                   {result.info &&
                     <Feed.Extra text>
