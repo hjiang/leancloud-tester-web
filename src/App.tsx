@@ -29,10 +29,10 @@ const getJSON = async (path: string) => {
 
 interface Downtime {
   id: number;
-  start_result_id: number;
-  start_time: string;
-  end_result_id?: number;
-  end_time?: string;
+  startResultId: number;
+  startTime: string;
+  endResultId?: number;
+  endTime?: string;
 }
 
 const DowntimeTable = (props: { downtimes: Downtime[] }) => {
@@ -49,9 +49,9 @@ const DowntimeTable = (props: { downtimes: Downtime[] }) => {
         {props.downtimes.map(dt => {
           return (
             <Table.Row key={dt.id}>
-              <Table.Cell>{moment(dt.start_time).local().format()}</Table.Cell>
-              <Table.Cell>{dt.end_time ? moment(dt.end_time).local().format() : 'Ongoing'}</Table.Cell>
-              <Table.Cell>{dt.end_time ? moment.duration(moment(dt.start_time).diff(moment(dt.end_time))).humanize() : 'Ongoing'}</Table.Cell>
+              <Table.Cell>{moment(dt.startTime).local().format()}</Table.Cell>
+              <Table.Cell>{dt.endTime ? moment(dt.endTime).local().format() : 'Ongoing'}</Table.Cell>
+              <Table.Cell>{dt.endTime ? moment.duration(moment(dt.startTime).diff(moment(dt.endTime))).humanize() : 'Ongoing'}</Table.Cell>
             </Table.Row>
           )
         })}
@@ -67,9 +67,19 @@ class DowntimeTab extends Component<DowntimePageProps> {
   state = {
     downtimes: []
   }
-  async componentDidMount() {
+
+  loadDowntimes = async () => {
     const downtimes = await getJSON(`/api/tests/${this.props.testName}/downtimes/`);
     this.setState({ downtimes });
+  }
+  async componentDidMount() {
+    this.loadDowntimes();
+  }
+ 
+  componentDidUpdate(prevProps: ResultTabProps) {
+    if (this.props.testName !== prevProps.testName) {
+      this.loadDowntimes();
+    }
   }
 
   render() {
