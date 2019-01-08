@@ -6,7 +6,9 @@ import {
   Menu,
   Feed,
   Icon,
-  Checkbox
+  Checkbox,
+  Table,
+  Tab
 } from 'semantic-ui-react';
 import { BrowserRouter as Router, Link, Switch, Route, match } from 'react-router-dom';
 import styled from 'styled-components';
@@ -25,6 +27,55 @@ const getJSON = async (path: string) => {
   return response.json();
 }
 
+interface Downtime {
+  id: number;
+  start_result_id: number;
+  start_time: string;
+  end_result_id?: number;
+  end_time?: string;
+}
+
+const DowntimeTable = (props: { downtimes: Downtime[] }) => {
+  return (
+    <Table color='red'>
+      <Table.Header>
+        <Table.Row>
+          <Table.HeaderCell>From</Table.HeaderCell>
+          <Table.HeaderCell>To</Table.HeaderCell>
+          <Table.HeaderCell>Duration</Table.HeaderCell>
+        </Table.Row>
+      </Table.Header>
+      <Table.Body>
+        {props.downtimes.map(dt => {
+          return (
+            <Table.Row key={dt.id}>
+              <Table.Cell>{moment(dt.start_time).local().format()}</Table.Cell>
+              <Table.Cell>{dt.end_time ? moment(dt.end_time).local().format() : 'Ongoing'}</Table.Cell>
+              <Table.Cell>{dt.end_time ? moment.duration(moment(dt.start_time).diff(moment(dt.end_time))).humanize() : 'Ongoing'}</Table.Cell>
+            </Table.Row>
+          )
+        })}
+      </Table.Body>
+    </Table>);
+}
+
+interface DowntimePageProps {
+  testName: string
+}
+
+class DowntimeTab extends Component<DowntimePageProps> {
+  state = {
+    downtimes: []
+  }
+  async componentDidMount() {
+    const downtimes = await getJSON(`/api/tests/${this.props.testName}/downtimes/`);
+    this.setState({ downtimes });
+  }
+
+  render() {
+    return <DowntimeTable downtimes={this.state.downtimes} />
+  }
+}
 interface Result {
   id: number;
   passed: boolean;
@@ -32,14 +83,14 @@ interface Result {
   info?: string;
 }
 interface ResultListProps {
-  match?: match<{ name: string }>
+  testName: string
 }
 
 interface ResultListState {
   results: Result[];
   failuresOnly: boolean;
 }
-class ResultList extends Component<ResultListProps> {
+class ResultsTab extends Component<ResultListProps> {
   state: ResultListState = {
     results: [],
     failuresOnly: true
@@ -48,11 +99,11 @@ class ResultList extends Component<ResultListProps> {
   loadResults = async () => {
     if (this.state.failuresOnly) {
       this.setState({
-        results: await getJSON(`/api/tests/${this.props.match!.params.name}/failures/`)
+        results: await getJSON(`/api/tests/${this.props.testName}/failures/`)
       });
     } else {
       this.setState({
-        results: await getJSON(`/api/tests/${this.props.match!.params.name}/results/`)
+        results: await getJSON(`/api/tests/${this.props.testName}/results/`)
       });
     }
   }
@@ -69,7 +120,6 @@ class ResultList extends Component<ResultListProps> {
   render() {
     return (
       <Container>
-        <h2>LeanStorage</h2>
         <Checkbox label='Show failures only' onChange={this.toggleFailuresOnly} checked={this.state.failuresOnly} toggle />
         <Feed>
           {this.state.results.map(result => {
@@ -103,6 +153,17 @@ class ResultList extends Component<ResultListProps> {
       </Container>
     );
   }
+}
+
+const TestPage = (props: {match?: match<{ name: string }>}) => {
+  const panes = [
+    { menuItem: 'Results', render: () => <Tab.Pane><ResultsTab testName={props.match!.params.name} /></Tab.Pane> },
+    { menuItem: 'Downtimes', render: () => <Tab.Pane><DowntimeTab testName={props.match!.params.name} /></Tab.Pane> },
+  ]
+  return <Container>
+    <h2>{props.match!.params.name}</h2>
+    <Tab panes={panes} />
+  </Container>;
 }
 
 const Timestamp = styled.span`
@@ -169,7 +230,7 @@ class App extends Component {
           <Container text style={{ marginTop: '7em' }}>
             <Switch>
               <Route exact path='/' component={TestList} />
-              <Route path='/tests/:name/' component={ResultList} />
+              <Route path='/tests/:name/' component={TestPage} />
             </Switch>
           </Container>
         </div>
