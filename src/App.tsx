@@ -82,16 +82,16 @@ interface Result {
   finishedAt: string;
   info?: string;
 }
-interface ResultListProps {
+interface ResultTabProps {
   testName: string
 }
 
-interface ResultListState {
+interface ResultTabState {
   results: Result[];
   failuresOnly: boolean;
 }
-class ResultsTab extends Component<ResultListProps> {
-  state: ResultListState = {
+class ResultsTab extends Component<ResultTabProps> {
+  state: ResultTabState = {
     results: [],
     failuresOnly: true
   }
@@ -107,8 +107,15 @@ class ResultsTab extends Component<ResultListProps> {
       });
     }
   }
+
   async componentDidMount() {
     this.loadResults();
+  }
+
+  componentDidUpdate(prevProps: ResultTabProps) {
+    if (this.props.testName !== prevProps.testName) {
+      this.loadResults();
+    }
   }
 
   toggleFailuresOnly = () => {
@@ -220,8 +227,11 @@ class App extends Component {
 
               <Dropdown item simple text='Tests'>
                 <Dropdown.Menu>
-                  <Dropdown.Item as={Link} to='/'>
-                    All
+                  <Dropdown.Item as={Link} to='/tests/LeanStorage/'>
+                    LeanStorage
+                  </Dropdown.Item>
+                  <Dropdown.Item as={Link} to='/tests/LeanMessage/'>
+                    LeanMessage
                   </Dropdown.Item>
                 </Dropdown.Menu>
               </Dropdown>
