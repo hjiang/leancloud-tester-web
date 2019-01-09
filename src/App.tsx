@@ -8,7 +8,9 @@ import {
   Icon,
   Checkbox,
   Table,
-  Tab
+  Tab,
+  Button,
+  Modal
 } from 'semantic-ui-react';
 import { BrowserRouter as Router, Link, Switch, Route, match } from 'react-router-dom';
 import styled from 'styled-components';
@@ -35,7 +37,11 @@ interface Downtime {
   endTime?: string;
 }
 
-const DowntimeTable = (props: { downtimes: Downtime[] }) => {
+const DowntimeTable = (props: {
+  downtimes: Downtime[],
+  selectedResultIds: number[],
+  onSelectResult: (id: number) => void
+}) => {
   return (
     <Table color='red'>
       <Table.Header>
@@ -49,8 +55,17 @@ const DowntimeTable = (props: { downtimes: Downtime[] }) => {
         {props.downtimes.map(dt => {
           return (
             <Table.Row key={dt.id}>
-              <Table.Cell>{moment(dt.startTime).local().format()}</Table.Cell>
-              <Table.Cell>{dt.endTime ? moment(dt.endTime).local().format() : 'Ongoing'}</Table.Cell>
+              <Table.Cell>
+                <Checkbox label={moment(dt.startTime).local().format()}
+                  checked={props.selectedResultIds.includes(dt.startResultId)}
+                  onChange={(_, { checked }) => checked && props.onSelectResult(dt.startResultId)} />
+              </Table.Cell>
+              <Table.Cell>
+                <Checkbox label={dt.endTime ? moment(dt.endTime).local().format() : 'Ongoing'}
+                  checked={dt.endResultId ? props.selectedResultIds.includes(dt.endResultId) : false}
+                  disabled={!dt.endResultId}
+                  onChange={(_, { checked }) => checked && props.onSelectResult(dt.endResultId!)} />
+              </Table.Cell>
               <Table.Cell>{dt.endTime ? moment.duration(moment(dt.startTime).diff(moment(dt.endTime))).humanize() : 'Ongoing'}</Table.Cell>
             </Table.Row>
           )
@@ -59,13 +74,34 @@ const DowntimeTable = (props: { downtimes: Downtime[] }) => {
     </Table>);
 }
 
+class ResultRangePopup extends Component<{ testName: string; startId: number; endId: number }> {
+  state = {
+    results: []
+  }
+
+  loadResults = async () => {
+    this.setState({
+      results: await getJSON(`/api/tests/${this.props.testName}/results/${this.props.startId}/${this.props.endId}/`)
+    });
+  }
+
+  async componentDidMount() {
+    await this.loadResults();
+  }
+
+  render() {
+    return <ResultsFeed results={this.state.results} />
+  }
+}
+
 interface DowntimePageProps {
   testName: string
 }
 
 class DowntimeTab extends Component<DowntimePageProps> {
   state = {
-    downtimes: []
+    downtimes: [],
+    selectedResultIds: []
   }
 
   loadDowntimes = async () => {
@@ -75,17 +111,77 @@ class DowntimeTab extends Component<DowntimePageProps> {
   async componentDidMount() {
     this.loadDowntimes();
   }
- 
+
   componentDidUpdate(prevProps: ResultTabProps) {
     if (this.props.testName !== prevProps.testName) {
       this.loadDowntimes();
     }
   }
 
+  onSelectResult = (id: number) => {
+    const ids: number[] = this.state.selectedResultIds;
+    ids.push(id);
+    if (ids.length > 2) {
+      ids.shift();
+    }
+    this.setState({ selectedResultIds: ids });
+  }
+
   render() {
-    return <DowntimeTable downtimes={this.state.downtimes} />
+    const sortedId = Array.from(this.state.selectedResultIds).sort((a, b) => a - b);
+    return (
+      <Container>
+        <Modal trigger={
+          <Button disabled={this.state.selectedResultIds.length !== 2}>
+            Show test results
+          </Button>}>
+          <Modal.Content>
+            <ResultRangePopup testName={this.props.testName} startId={sortedId[0]}
+              endId={sortedId[1]} />
+          </Modal.Content>
+        </Modal>
+
+        <DowntimeTable downtimes={this.state.downtimes}
+          selectedResultIds={this.state.selectedResultIds}
+          onSelectResult={this.onSelectResult} />
+      </Container>
+    )
   }
 }
+
+const ResultsFeed = (props: { results: Result[] }) => {
+  return (
+    <Feed>
+      {props.results.map(result => {
+        return (
+          <Feed.Event key={result.id}>
+            <Feed.Label>
+              {
+                result.passed ?
+                  <Icon color='green' name='thumbs up' /> :
+                  <Icon color='red' name='thumbs down' />
+              }
+            </Feed.Label>
+            <Feed.Content>
+              <Feed.Summary>
+                {result.passed ? 'Passed' : 'Failed'}
+                <Feed.Date>
+                  {moment(result.finishedAt).fromNow()}
+                  - {moment(result.finishedAt).local().format()}
+                </Feed.Date>
+              </Feed.Summary>
+              {result.info &&
+                <Feed.Extra text>
+                  {result.info}
+                </Feed.Extra>}
+            </Feed.Content>
+          </Feed.Event>
+        );
+      })}
+    </Feed>
+  );
+}
+
 interface Result {
   id: number;
   passed: boolean;
@@ -138,41 +234,13 @@ class ResultsTab extends Component<ResultTabProps> {
     return (
       <Container>
         <Checkbox label='Show failures only' onChange={this.toggleFailuresOnly} checked={this.state.failuresOnly} toggle />
-        <Feed>
-          {this.state.results.map(result => {
-            return (
-              <Feed.Event key={result.id}>
-                <Feed.Label>
-                  {
-                    result.passed ?
-                      <Icon color='green' name='thumbs up' /> :
-                      <Icon color='red' name='thumbs down' />
-                  }
-                </Feed.Label>
-                <Feed.Content>
-                  <Feed.Summary>
-                    {result.passed ? 'Passed' : 'Failed'}
-                    <Feed.Date>
-                      {moment(result.finishedAt).fromNow()}
-                      - {moment(result.finishedAt).local().format()}
-                    </Feed.Date>
-                  </Feed.Summary>
-                  {result.info &&
-                    <Feed.Extra text>
-                      {result.info}
-                    </Feed.Extra>}
-                </Feed.Content>
-              </Feed.Event>
-            );
-          })}
-
-        </Feed>
+        <ResultsFeed results={this.state.results} />
       </Container>
     );
   }
 }
 
-const TestPage = (props: {match?: match<{ name: string }>}) => {
+const TestPage = (props: { match?: match<{ name: string }> }) => {
   const panes = [
     { menuItem: 'Results', render: () => <Tab.Pane><ResultsTab testName={props.match!.params.name} /></Tab.Pane> },
     { menuItem: 'Downtimes', render: () => <Tab.Pane><DowntimeTab testName={props.match!.params.name} /></Tab.Pane> },
